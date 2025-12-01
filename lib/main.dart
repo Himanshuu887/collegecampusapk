@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:video_player/video_player.dart';
+import 'package:url_launcher/url_launcher.dart'; // Using url_launcher for videos
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -294,7 +294,7 @@ class _CollegesListPageState extends State<CollegesListPage> {
   }
 }
 
-// -------------------- 3. College Dashboard Page (with Chatbot) --------------------
+// -------------------- 3. College Dashboard Page --------------------
 class CollegeDashboardPage extends StatefulWidget {
   final College college;
   const CollegeDashboardPage({super.key, required this.college});
@@ -385,7 +385,7 @@ class _CollegeDashboardPageState extends State<CollegeDashboardPage> {
   }
 }
 
-// -------------------- SMART FAQ Chatbot Widget (with Image Support) --------------------
+// -------------------- SMART FAQ Chatbot Widget --------------------
 class ChatbotWidget extends StatefulWidget {
   final String collegeId;
   final VoidCallback onClose;
@@ -565,8 +565,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
   }
 }
 
-
-// -------------------- 4a. College Info Page (ANIMATED VERSION) --------------------
+// -------------------- 4a. College Info Page --------------------
 class CollegeInfoPage extends StatelessWidget {
   final College college;
   const CollegeInfoPage({super.key, required this.college});
@@ -628,16 +627,12 @@ class CollegeInfoPage extends StatelessWidget {
   }
 }
 
-// -------------------- Reusable Styled Info Card (for display) --------------------
+// -------------------- Reusable Styled Info Card --------------------
 class InfoCard extends StatelessWidget {
   final String title;
   final IconData icon;
 
-  const InfoCard({
-    super.key,
-    required this.title,
-    required this.icon,
-  });
+  const InfoCard({super.key, required this.title, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -663,20 +658,14 @@ class InfoCard extends StatelessWidget {
   }
 }
 
-// -------------------- Animated Detail Pop-up Widget --------------------
+// -------------------- Animated Detail Pop-up --------------------
 class AnimatedDetailPopup extends StatefulWidget {
   final String title;
   final String content;
   final IconData icon;
   final bool isMarkdown;
 
-  const AnimatedDetailPopup({
-    super.key,
-    required this.title,
-    required this.content,
-    required this.icon,
-    this.isMarkdown = true,
-  });
+  const AnimatedDetailPopup({super.key, required this.title, required this.content, required this.icon, this.isMarkdown = true});
 
   @override
   State<AnimatedDetailPopup> createState() => _AnimatedDetailPopupState();
@@ -743,8 +732,7 @@ class _AnimatedDetailPopupState extends State<AnimatedDetailPopup> with SingleTi
   }
 }
 
-
-// -------------------- 4b. College Images & Videos Page (GOOGLE MAPS STYLE) --------------------
+// -------------------- 4b. College Images & Videos Page (WITH +4 FEATURE) --------------------
 class CollegeMediaPage extends StatelessWidget {
   final College college;
   const CollegeMediaPage({super.key, required this.college});
@@ -787,7 +775,7 @@ class CollegeMediaPage extends StatelessWidget {
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: VideoPlayerWidget(videoUrl: college.videoUrls[index]),
+                    child: VideoLinkWidget(videoUrl: college.videoUrls[index], index: index),
                   );
                 },
               )
@@ -802,7 +790,7 @@ class CollegeMediaPage extends StatelessWidget {
     );
   }
 
-  // NEW: This widget builds the Google Maps style 2x2 grid.
+  // Helper widget that builds the 2x2 grid with the +X more overlay
   Widget _buildImageCategoryGrid({required BuildContext context, required String title, required List<String> imageUrls}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -927,7 +915,6 @@ class FullGalleryPage extends StatelessWidget {
   }
 }
 
-
 // -------------------- Full-Screen Image Viewer POP-UP --------------------
 class FullScreenImageViewerPopup extends StatelessWidget {
   final String imageUrl;
@@ -971,86 +958,64 @@ class FullScreenImageViewerPopup extends StatelessWidget {
   }
 }
 
-
-// -------------------- Video Player Widget --------------------
-class VideoPlayerWidget extends StatefulWidget {
+// -------------------- Video Link Widget (Launches External Player) --------------------
+class VideoLinkWidget extends StatelessWidget {
   final String videoUrl;
-  const VideoPlayerWidget({super.key, required this.videoUrl});
+  final int index;
 
-  @override
-  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
-}
+  const VideoLinkWidget({super.key, required this.videoUrl, required this.index});
 
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
-  bool _isPlaying = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-      ..initialize().then((_) {
-        setState(() {});
-      })
-      ..setLooping(true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _togglePlayPause() {
-    setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
-        _isPlaying = false;
-      } else {
-        _controller.play();
-        _isPlaying = true;
-      }
-    });
+  Future<void> _launchVideo() async {
+    final Uri uri = Uri.parse(videoUrl);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      debugPrint('Could not launch $uri');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _controller.value.isInitialized
-            ? AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: Stack(
-                  alignment: Alignment.center,
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _launchVideo,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.play_arrow, color: Colors.indigo, size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    VideoPlayer(_controller),
-                    GestureDetector(
-                      onTap: _togglePlayPause,
-                      child: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.black.withOpacity(0.5),
-                        child: Icon(
-                          _isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: Colors.white,
-                          size: 40,
-                        ),
-                      ),
+                    Text(
+                      "Video ${index + 1}",
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Tap to play video",
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
-              )
-            : Container(
-                height: 200,
-                color: Colors.black,
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
               ),
-      ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
-
 
 // -------------------- 4c. College Map Page --------------------
 class CollegeMapPage extends StatefulWidget {
@@ -1122,4 +1087,3 @@ class _CollegeMapPageState extends State<CollegeMapPage> {
     );
   }
 }
-
